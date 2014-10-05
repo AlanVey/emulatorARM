@@ -1,0 +1,94 @@
+\documentclass[11pt]{article}
+
+\usepackage{fullpage}
+
+\begin{document}
+
+\title{Our Extension...}
+\author{lmj112, skd12, amv12}
+
+\maketitle
+
+\section{Introduction}
+
+As of today, our group has created a fully operation emulator and are currently working on the assembler. We've had quite a few problems that we've overcome over the course of the project and are hopeful that by the time of the presentation, we will have fully completed the exercise and the extension.
+
+\section{Emulator}
+
+Our emulator features dynamic recompilation as a significant optimisation. The process of emulation involves translating binary code designed for another architecture and simulating its execution on another. The main computation issues involved are the overhead of converting instructions into their native counterparts, something we feel we've gone some way toward addressing.
+
+As a quick overhead of our file structure, we've attempted to organise our files into source and header pairs, along with keeping the main assemble and emulator source files at the root of the src directory. Any significant utilities that the two main files make use of can typically be found under utilities, with most macros and definitions found in files inside the res folder.
+
+\subsection{Our Raspi State Struct (ARM)}
+
+The first thing required by an emulator is a method to store the state of the current machine. For us, we made use of a struct to represent the processor and it's memory. For us, this seemed to work quite efficiently as it meant we could pass a single pointer around that represented the whole state.
+
+Our memory we split into 2 components, encoded and decoded memory. We also have space for the 13 registers all the way up to the program counter, the link register etc.
+
+\subsection{Reading in Files}
+
+The source to read in the ARM binary files can be found inside the utilities/binaryLoading files. These process the file by making use of the C fgets and freads functions. We have error checking in place to prevent any memory access errors by making sure that at each stage we verify the non-nullity of our C FILE variable.
+
+\subsection{Processing Binary}
+
+Once the binary loading has taken place and our raspi's encoded memory has been filled with the contents of the binary file, we initialise the decoded memory. For the moment I will go to say that we initialise the decoded memory with an identical sizing (MEMSIZE, 2^16) as the original encoded memory. It is made with the purpose to mirror the encoded memory, but each element of the array is designed to host multiple different struct types. As such, we chose to make the decoded memory array of type BaseInstr which has a character array called padding to allow for struct spacing.
+
+Skipping over the linking of the processing to execution, our processing of the binary operates on a simple principle. The majority of this processing takes place in the decode.c file, where the decodeInstruction is the main entry for each instruction. This take the argument of an ARM struct pointer, from hereon referred to as `raspi`, and a u32 (unsigned 32 bit integer) that represents the index inside the raspi's memory to process.
+
+To get an idea of the execution chain, we'll explain our approach to dynamic recompilation now.
+
+\subsection{Dynamic Recompilation}
+
+As mentioned previously, the main overhead and issue with emulation techniques is that the majority of processing goes into the conversion from one instruction set to another. This adds work to every instruction to be processed, thereby slowing the execution. To overcome this issue, it is possible to perform something called dynamic recompilation, a process used to convert the foreign binary instructions to something readable on a native level.
+
+Typically, for heavily optimised compilers, the most efficient way of performing the dynamic recompilation is to convert the foreign binary code into the native architectures instruction set. Unfortunately this hinders the portability of the solution as for each new architecture you will need to fine tune the conversion process. There are libraries available to provide semi-portable solutions to instruction set libraries, however for an academic project it was clearly unsuitable to make use of a third party solution.
+
+So we came up with what we thought was a relatively elegant idea. We saw the process of decoding an instruction as a crystalization of all the stateless information we could gather from inside it. So any immediate values, any addresses that we can take prior to runtime we can fix in the decoded memory.
+
+The goal was to have a system so that execution was to call one function, assigned inside the decoded memory, which had it's own variables attached. Any values that would be taken from runtime would be evaluated by use of pointers, while immediates would be stored in a literal u32 inside the decoded instruction struct and the pointers then turned to them. This allows for the cleanest execution, as there is then no need to differentiate between immediates and register values, the pointer will point to the correct item regardless.
+
+To do this our decode function breaks the instruction code down into all it's component parts and uses a base struct that is common to all instructions that share the first few fields. This allows for us to execute all our decoded functions naively, with no idea what function we're calling, by making use of a pointer in each struct that we can can with the pointer to the struct itself. During the decode we've set up and relevant pointers to registers and so during runtime we have the correct live values for computation.
+
+The best thing about this approach is the ability to start the execution under the premise that the instruction has already been decoded. This is down to the initialization of our decoded memory, where we create every element with a copy of an `EmptyInstr` struct that contains function pointers to the decode instruction and the index of the memory location, along with a pointer to the raspi. This allows an entirely naive approach to the execution of the binary program.
+
+Now, as the programs become more complex, the loading time required to decode the entire executable would obviously become prohibitive for this method. The most elegant solution to this is to decode to a certain point and then start the execution, move in leaps and bounds. The natural demarcation for this decoding process are branch statements. Seeing as the major increase in performance can be seen from the reduction in repeated processing of the same instruction, the best improvements are seen in iterative looping programs where the decoded instructions are processed once and executed repeatedly. If we chose the branching statement then we will not only decode only those instructions that we require for execution, but we can move in parallel with the execution.
+
+The Halting Problem prevents any system from being able to analyse whether a program will execute without error prior to execution, and thereby places the restriction on specifically chosing the parts of the program to decode. As a result this is clearly the most effective method, allowing decoding without impacting significantly on the execution of the program and only decoding those parts that are required at runtime.
+
+\section{Execution and Decoded Linkin}
+
+The natural approach to the execution is therefore to call each initialised EmptyInstr function from the execution stage and then decrement the program counter to bring the execution back onto the instruction that has now been decoded. In terms of the CPU state, it's not aware that anything has taken place, and everything is moved back a step silently. We can also chose our halting instruction and put a terminate statement back into the decoded memory when we wish for the program to come to an end.
+
+\subsection{Shifting}
+
+We ran into some trouble with the shifting functions at exection, due to the differentiation between immediate values and their shifted register counterparts. To solve this, we made a common function to decode the shifting for both multiply and the single data transfer instructions. From here we could assign a sub function with it's own values to be called on the execution. This also allowed us to set up the parameters such that even those instructions that required no shifting we could shift by 0, thereby allowing no differentiation between the instructions during execution, and thereby less computational overhead per cycle.
+
+\section{Assembler}
+
+The current plan for the assembler is to built a tokenizer to break the syntax of the assembly file down into it's component chunks, in order to encode the functions. It is much like the emulator, just in reverse, and we're finding that we can make use of the masks and other definitions used for the emulator as we go along. 
+
+We've currently put together a working multiply function, and branching function, and for the two pass assembler we have put together a custom AVL in order to parse the link tree. Unfortunately due to group issues we've not had much time to really hit the assembler but we're hoping that now they seem to be resolved (see Group Evaluation) that we can move on and get this done and finished.
+
+\section{Testing}
+
+Throughout the course of the project we have thoroughly tested all our builds and commits against both the given test suite and our own. At the beginning of the project we became instantly aware of how taxing an emulator and assembler would be to debug, and so followed a loosely test driven development approach to our work. Unfortunately it wasn't purely a TDD environment due to to pace required to keep up with the project as a whole, but over the course of the work we managed to cover quite comprehensively the majority of our functions.
+
+We weren't initially aware of the testsuite Tristan had provided, hence why we didn't make an extension to the testsuite directly. Instead we made use of the FFI ruby library to interface directly with the native C code. The advantage of this over the testsuite provided was that we could build incrementally- the testing didn't require the entire emulator/assembler to be built in order to verify it functions correctly. By testing each function at a time, we drastically reduced the amount of debugging required to get up the emulator up and functional. In fact, by the time we actually got the emulator to produce the testsuite compliant output, we passed all but 9 tests.
+
+What was also beneficial about the other tests was our ability to randomly generate a set of a few hundred instructions on each test, which we could then make use of to verify that our decoding was functioning correctly. It tested edge cases on each run, adding a sense of security to our progression.
+
+On top of this, we integrated our testsuite with Rspec, a ruby testing framework. It allows very expressive descriptions of tests that we leveraged throughout the work. Even more useful was a ruby gem that allowed integration with growl a notification system. By using this gem, once configured correctly, we enabled live testing checks on all the groups personal machines. On every save, guard would initiate a test run where all the tests that had been put together would be run against a newly refreshed build. Each test takes about 4 seconds to complete, and on the outcome a notification would appear in the top right of the screen that informed the user of it's success or failure. This was a massively popular feature of the testsuite as due to the catching of makefile errors, we became instantly aware not only if our code would compile (therefore saving us from pushing anything that would really break anothers work) but also that the key functionality of the project was intact. I know every member of the group enjoyed the feeling of security that the testing gave them, and whilst it absolutely slowed down the project development initially, the time we saved in debugging more than made up for it.
+
+Unfortunately we had a slight issue with Tristan's testsuite at first. As two of us have Mac's, we not only don't have the mime.types file required for exection but we also didn't have the timeout command required by the ruby script. To overcome this issue, we wrote a ruby script that pulled Tristan's testsuite into our own, vastly increasing the power of our testsuite as a whole, especially with the live feedback. Unfortunately I neglected to pull in all the zeroed registers, forgetting that incorrect writes to different locations would result in failures on the official testsuite, but we eventually got the official suite running anyway by modifying the ruby files. It was however a very useful addition that we made to the original testsuite to add a git pull button to the test suite, allowing us to keep a central repository on an lab pc for everyone to access, where they could push from their computers and then, using the web interface, initiate a git pull on the other end that on termination would rerun the testsuite. All these additions and extensions in terms of testing helped the entire team, and using ruby's bundler gem was surprisingly easy to maintain across the two different system's we had in the group.
+
+\section{Group Evaluation}
+
+As a team, initially we had trouble finding the time to meet up due to family engagement and other issues. This led to an issue where one group member felt that he had been left behind, which quickly spiralled out of control. I believe none of us expected that it would get that serious that quickly, which was probably the reason it grew to be such a large problem in the first place.
+
+Having discussed the issues within the group, we believe what could have really helped the situation is the setting of clear group goals and time management. At the outset we were all unmatched at experience in C, and therefore starting at different stages. This discrepancy alienated one member far too early in the process, which led to a long period where he felt unable to contribute fully to the project. This is doubly unfortunate due to the fact that as a group, from the real start of the project we've kept good record of group tasks, and have used github as a tool for creating issues, organizing them by milestones and assigning them to group members.
+
+This division of tasks really helped focus the group, allowing them to tick off tasks, giving both satisfaction and a natural organization to the project as a whole. It also prevented us from dithering in respect to the key aims of the project, something that could have been a big risk given the size of the task.
+
+In terms of the current situation with the group, we feel that we've caught the struggling member up with the current situation and he is now ably committing to the assembly task. In that light we feel quite positive that as a group we can pull together on the assembler and the rest of the tasks, given the time from now through to the presentation. If not, we all feel like we've learned a great deal from the experience of working in a team, almost more so due to the difficulties we've experienced and overcome.
+
+\end{document}

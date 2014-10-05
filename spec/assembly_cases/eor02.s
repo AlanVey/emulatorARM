@@ -1,0 +1,2 @@
+mov r1,#0xFF
+eor r2,r1,#0x0F

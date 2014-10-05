@@ -1,0 +1,30 @@
+\documentclass[11pt]{article}
+
+\usepackage{fullpage}
+
+\begin{document}
+
+\title{ARM Checkpoint... }
+\author{Lawrence Jones, Sean Naderi, Alan Vey}
+
+\maketitle
+
+\section{Group Organisation}
+
+We wanted to make sure that everyone was contributing to the project, so we always had 2 or 3 computers running editing different parts of the project and then committing and pushing the changes once the rest of the group was informed of the change and agreed with the improvements. We also however found ourselves quite often gathered around 1 computer all discussing the problem and giving our individual ideas to try to come up with the best implementation of a certain function or part of a file. Since different members of the group understood better or were more proficient at certain aspects of C or the project as a whole the latter approach tended to suit us very well as then it made sure that everyone understood what was happening in all parts of the project and so could therefore contribute more evenly.  
+
+
+\section{Implementation Strategies}
+
+As a whole, our team was eager to ensure that, over what could potentially expand to become a very large project, we tested all the new features we added as we added them.
+After looking into a few solutions and finding that as a whole C is a rather difficult language to test we settled on FFI, a ruby gem.
+By wrapping the standard C library we can call functions natively from the ruby shell and through ruby standard objects. The power of this is of course to hook into rubys large
+open source libraries which provided us with many different choices in terms of testing. As such we are now using ruby with rspec to keep track of our development and builds
+which has proven to be incredibly useful for all team members, with a live feed to growl showing the test status on each save.
+In terms of implementation, we are aiming to put in place a system of dynamic recompilation, where we shall process the instructions prior to execution, processing as far
+ahead as the next branch statement before resuming execution. Our hope is that this approach will drastically increase the performance of the emulation due to the existance of
+a cache and the reduced need to reprocess each instruction at every cycle.
+Unfortunately due to illness and other circumstance our team was only able to make a start on this project a couple of days ago. As such, we haven't made too much headway
+with the spec though given our progress over the past few days we are very confident that we'll produce something interesting.
+
+\end{document}
